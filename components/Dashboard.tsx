@@ -49,9 +49,15 @@ const formatScore = (score: SubjectGrade['score']): string => {
 
 
 // --- Карточка студента ---
+interface OverallSheetContent {
+  type: 'overallGrades' | 'overallAbsences';
+  studentName: string;
+}
+
 const StudentAnalyticsCard: React.FC<{ student: StudentAnalytics, allStudentGrades: SubjectGrade[] }> = ({ student, allStudentGrades }) => {
     const [isExpanded, setIsExpanded] = useState(false);
     const [activeSheet, setActiveSheet] = useState<{ type: 'grades' | 'absences', subject: string } | null>(null);
+    const [overallSheet, setOverallSheet] = useState<OverallSheetContent | null>(null);
 
     const gradesForSheet = useMemo(() => {
         if (!activeSheet) return [];
@@ -63,9 +69,28 @@ const StudentAnalyticsCard: React.FC<{ student: StudentAnalytics, allStudentGrad
         return gradesForSheet.filter(g => g.score === 'н');
     }, [activeSheet, gradesForSheet]);
 
+    const allGradesForOverallSheet = useMemo(() => {
+      if (overallSheet?.type === 'overallGrades') {
+        return allStudentGrades.filter(g => typeof g.score === 'number');
+      }
+      return [];
+    }, [overallSheet, allStudentGrades]);
+
+    const allAbsencesForOverallSheet = useMemo(() => {
+      if (overallSheet?.type === 'overallAbsences') {
+        return allStudentGrades.filter(g => g.score === 'н');
+      }
+      return [];
+    }, [overallSheet, allStudentGrades]);
+
     const handleButtonClick = (e: React.MouseEvent, type: 'grades' | 'absences', subject: string) => {
         e.stopPropagation(); // Предотвращаем сворачивание карточки
         setActiveSheet({ type, subject });
+    };
+
+    const handleOverallButtonClick = (e: React.MouseEvent, type: 'overallGrades' | 'overallAbsences') => {
+      e.stopPropagation();
+      setOverallSheet({ type, studentName: student.name });
     };
 
     return (
@@ -80,14 +105,14 @@ const StudentAnalyticsCard: React.FC<{ student: StudentAnalytics, allStudentGrad
                         <p className="text-xs text-text-secondary dark:text-dark-text-secondary">Место в рейтинге: {student.rank}</p>
                     </div>
                     <div className="flex items-center gap-4 text-center">
-                        <div>
+                        <button onClick={(e) => handleOverallButtonClick(e, 'overallGrades')} className="flex flex-col items-center text-center rounded-lg py-1 px-2 hover:bg-highlight dark:hover:bg-dark-highlight transition-colors">
                             <p className="font-bold text-xl text-accent dark:text-dark-accent">{student.overallAvgScore?.toFixed(2) ?? '–'}</p>
                             <p className="text-xs text-text-secondary dark:text-dark-text-secondary">Cр. балл</p>
-                        </div>
-                         <div>
+                        </button>
+                         <button onClick={(e) => handleOverallButtonClick(e, 'overallAbsences')} className="flex flex-col items-center text-center rounded-lg py-1 px-2 hover:bg-highlight dark:hover:bg-dark-highlight transition-colors">
                             <p className="font-bold text-xl text-red-600 dark:text-red-400">{student.totalAbsences}</p>
                             <p className="text-xs text-text-secondary dark:text-dark-text-secondary">Отработки</p>
-                        </div>
+                        </button>
                     </div>
                 </div>
 
@@ -175,6 +200,55 @@ const StudentAnalyticsCard: React.FC<{ student: StudentAnalytics, allStudentGrad
                      ) : (
                          <p className="text-center text-text-secondary dark:text-dark-text-secondary py-8">Нет отработок по этому предмету.</p>
                      )
+                )}
+            </BottomSheet>
+
+            <BottomSheet 
+              isOpen={overallSheet !== null}
+              onClose={() => setOverallSheet(null)}
+              title={`${overallSheet?.type === 'overallGrades' ? 'Все оценки' : 'Все отработки'} студента ${overallSheet?.studentName}`}
+            >
+                {overallSheet?.type === 'overallGrades' && (
+                    allGradesForOverallSheet.length > 0 ? (
+                        <ul className="space-y-2">
+                            {allGradesForOverallSheet.map((grade, index) => (
+                                <li key={`${grade.date}-${grade.topic}-${index}`} className="flex justify-between items-center bg-secondary dark:bg-dark-secondary px-3 py-2 rounded-xl border border-border-color dark:border-dark-border-color">
+                                    <div className="min-w-0 pr-2">
+                                        <p className="text-sm font-medium text-text-primary dark:text-dark-text-primary break-words">{grade.subject} - {grade.topic}</p>
+                                        <p className="text-xs text-text-secondary dark:text-dark-text-secondary mt-0.5">
+                                            {new Date(grade.date).toLocaleString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}
+                                        </p>
+                                    </div>
+                                    {grade.score !== null && (
+                                    <div className={`w-9 h-9 flex-shrink-0 rounded-full flex items-center justify-center text-sm font-bold ${getScorePillColor(grade.score)}`}>
+                                        {formatScore(grade.score)}
+                                    </div>
+                                    )}
+                                </li>
+                            ))}
+                        </ul>
+                    ) : (
+                        <p className="text-center text-text-secondary dark:text-dark-text-secondary py-8">Нет оценок.</p>
+                    )
+                )}
+
+                {overallSheet?.type === 'overallAbsences' && (
+                    allAbsencesForOverallSheet.length > 0 ? (
+                        <ul className="space-y-2">
+                            {allAbsencesForOverallSheet.map((absence, index) => (
+                                <li key={`${absence.date}-${absence.topic}-${index}`} className="flex justify-between items-center bg-secondary dark:bg-dark-secondary px-3 py-2 rounded-xl border border-border-color dark:border-dark-border-color">
+                                    <div className="min-w-0 pr-2">
+                                        <p className="text-sm font-medium text-text-primary dark:text-dark-text-primary break-words">{absence.subject} - {absence.topic}</p>
+                                        <p className="text-xs text-text-secondary dark:text-dark-text-secondary mt-0.5">
+                                            {new Date(absence.date).toLocaleString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}
+                                        </p>
+                                    </div>
+                                </li>
+                            ))}
+                        </ul>
+                    ) : (
+                        <p className="text-center text-text-secondary dark:text-dark-text-secondary py-8">Нет отработок.</p>
+                    )
                 )}
             </BottomSheet>
         </>
