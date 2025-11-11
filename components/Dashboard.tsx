@@ -276,7 +276,11 @@ const Dashboard: React.FC<DashboardProps> = ({ allGrades, isLoading }) => {
         
         const analyticsData = Object.entries(gradesByStudent).map(([id, grades]) => {
             const name = grades[0]?.user_name || `User ${id}`;
-            const overallAvgScore = grades.find(g => g.avg_score !== undefined)?.avg_score ?? null;
+            const numericOverallGrades = grades.map(g => g.score).filter(s => typeof s === 'number') as number[];
+            let overallAvgScore: number | null = null;
+            if (numericOverallGrades.length > 0) {
+                overallAvgScore = numericOverallGrades.reduce((sum, score) => sum + score, 0) / numericOverallGrades.length;
+            }
             const totalAbsences = grades.filter(g => g.score === 'н').length;
             
             const gradesBySubjectForStudent: Record<string, SubjectGrade[]> = grades.reduce((acc, grade) => {
